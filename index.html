@@ -1,1 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYS.CALENDAR // MATRIX_OS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Share Tech Mono for Matrix vibe -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #0f0;
+            --dark-green: #003300;
+            --bg-color: #050505;
+            --screen-bg: #0a0f0a;
+        }
 
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #000;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--neon-green);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- CRT Screen & Curvature Effect --- */
+        .crt-monitor {
+            width: 95%;
+            max-width: 1100px;
+            height: 90vh;
+            background: #111;
+            border-radius: 40px;
+            padding: 25px;
+            box-shadow: 0 0 0 2vw #050505, 0 0 0 2.5vw #1a1a1a, 0 0 50px rgba(0, 255, 0, 0.2);
+            position: relative;
+        }
+
+        .crt-screen {
+            background-color: var(--screen-bg);
+            border-radius: 20px;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 100px rgba(0, 255, 0, 0.1);
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            /* Sub-pixel curved look */
+            transform: perspective(1200px) rotateX(1deg);
+        }
+
+        /* Scanlines and Static Overlay */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Horizontal TV Scan Wave Effect */
+        .crt-wave {
+            position: absolute;
+            top: -20%;
+            left: 0;
+            width: 100%;
+            height: 15%;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 255, 0, 0),
+                rgba(0, 255, 0, 0.15),
+                rgba(0, 255, 0, 0)
+            );
+            z-index: 101;
+            pointer-events: none;
+            animation: crt-scan-wave 6s linear infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes crt-scan-wave {
+            0% { top: -20%; }
+            100% { top: 120%; }
+        }
+
+        .flicker {
+            animation: flicker-anim 0.15s infinite;
+        }
+        @keyframes flicker-anim {
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
+        }
+
+        /* --- Glitch Effects --- */
+        .glitch-text {
+            position: relative;
+            display: inline-block;
+        }
+        .glitch-text:hover {
+            animation: glitch-skew 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+            text-shadow: 1px 0 red, -1px 0 cyan;
+        }
+        @keyframes glitch-skew {
+            0% { transform: skew(0deg); }
+            20% { transform: skew(-5deg); }
+            40% { transform: skew(5deg); }
+            100% { transform: skew(0deg); }
+        }
+
+        /* --- Layout Structures --- */
+        .app-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--dark-green);
+            padding-right: 15px;
+        }
+
+        .side-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding-left: 5px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--neon-green);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* --- Calendar Styling --- */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 20px;
+        }
+        .day-name {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--dark-green);
+            font-weight: bold;
+            padding-bottom: 5px;
+        }
+        .day-cell {
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: 1px solid var(--dark-green);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .day-cell:hover {
+            background: var(--dark-green);
+            color: white;
+            z-index: 10;
+        }
+        .day-cell.active {
+            background: var(--neon-green);
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+        .day-cell.is-today {
+            border: 1px solid var(--neon-green);
+            box-shadow: inset 0 0 5px var(--neon-green);
+        }
+
+        /* Markers for Events */
+        .day-cell.has-mint::before {
+            content: '';
+            position: absolute;
+            top: 2px; right: 2px;
+            width: 4px; height: 4px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        /* --- Task Cards --- */
+        .task-card {
+            border: 1px solid var(--dark-green);
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(0, 30, 0, 0.2);
+            font-size: 0.85rem;
+        }
+        .task-card:hover {
+            border-color: var(--neon-green);
+            background: rgba(0, 60, 0, 0.4);
+        }
+
+        /* Custom Button */
+        .cmd-btn {
+            background: transparent;
+            color: var(--neon-green);
+            border: 1px solid var(--neon-green);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cmd-btn:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex; justify-content: center; align-items: center; z-index: 500;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: #000; padding: 25px; border: 1px solid var(--neon-green);
+            width: 95%; max-width: 450px;
+            box-shadow: 0 0 30px rgba(0,255,0,0.1);
+        }
+
+        input, select, textarea {
+            width: 100%; background: #000; border: 1px solid var(--dark-green);
+            color: var(--neon-green); padding: 8px; font-family: inherit; margin-bottom: 15px;
+        }
+        input:focus { border-color: var(--neon-green); outline: none; }
+
+        /* Sound Toggle */
+        #soundToggle {
+            position: fixed; top: 15px; right: 15px; z-index: 600;
+            background: #000; border: 1px solid var(--neon-green); color: var(--neon-green);
+            padding: 5px 10px; font-family: inherit; cursor: pointer; font-size: 0.7rem;
+        }
+
+        #customNotification {
+            border: 1px solid var(--neon-green);
+            background: #000;
+            box-shadow: 0 0 30px var(--neon-green);
+        }
+
+        /* Image Grayscale Matrix Filter */
+        .matrix-img {
+            filter: sepia(100%) hue-rotate(70deg) saturate(400%) brightness(80%) contrast(150%);
+            border: 1px solid var(--neon-green);
+        }
+
+        /* Popup Info Kalender */
+        .nft-popup {
+            position: absolute;
+            background: #000;
+            border: 1px solid var(--neon-green);
+            padding: 10px;
+            width: 200px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px);
+            transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(0,255,0,0.3);
+            color: var(--neon-green);
+            font-size: 0.8rem;
+            text-align: left;
+        }
+        .day-cell:hover .nft-popup {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(-110%);
+        }
+    </style>
+</head>
+<body class="flicker">
+
+    <!-- Audio Switch -->
+    <button id="soundToggle" onclick="initAudio()">[ SOUND: DISABLED ]</button>
+
+    <!-- Audio Element -->
+    <audio id="alarmAudio" preload="auto" loop>
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- CRT Screen Wrapper -->
+    <div class="crt-monitor">
+        <div class="crt-screen">
+            <div class="scanlines"></div>
+            <div class="crt-wave"></div> <!-- Glitch Wave Effect -->
+
+            <!-- Left Container: Main Terminal -->
+            <div class="app-container">
+                <div class="header">
+                    <div>
+                        <h1 class="glitch-text text-xl">MATRIX_CALENDAR_V2.0</h1>
+                        <p id="liveClock" class="text-sm font-bold text-white tracking-widest mt-1">00:00:00</p>
+                    </div>
+                    <div class="text-right">
+                        <p id="liveDate" class="text-xs opacity-70">YYYY/MM/DD</p>
+                        <p id="connectionStatus" class="text-[10px] text-green-900">CONNECTION: STABLE</p>
+                    </div>
+                </div>
+
+                <!-- Add Entry Button -->
+                <div class="flex justify-center mb-4">
+                    <button class="cmd-btn" id="openModalBtn">
+                        <i data-lucide="plus" class="w-4 h-4"></i> EXECUTE.ADD_NEW_ENTRY
+                    </button>
+                </div>
+
+                <!-- Month Navigation -->
+                <div class="date-nav">
+                    <button id="prevMonth"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <div id="currentMonthLabel" class="font-bold tracking-tighter">DECEMBER_2023</div>
+                    <button id="nextMonth"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div id="calendarGrid" class="calendar-grid">
+                    <div class="day-name">MO</div><div class="day-name">TU</div><div class="day-name">WE</div>
+                    <div class="day-name">TH</div><div class="day-name">FR</div><div class="day-name">SA</div><div class="day-name">SU</div>
+                </div>
+
+                <!-- Log Display -->
+                <div id="logHeader" class="text-xs mb-2 border-b border-green-900 pb-1 opacity-50">>> SYSTEM_LOG // ENTRIES_FOR_SELECTED_DATE:</div>
+                <div id="taskList" class="task-list">
+                    <!-- Tasks go here -->
+                </div>
+            </div>
+
+            <!-- Right Panel: Queue -->
+            <div class="side-panel">
+                <h2 class="text-sm font-bold mb-4 glitch-text border-b border-green-900 pb-2">>> URGENT_MINT_QUEUE</h2>
+                <div id="nextMintList" class="flex flex-col gap-3">
+                    <!-- Queue items go here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Entry Form -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal-content relative">
+            <h2 id="modalTitle" class="text-lg font-bold mb-4 border-b border-green-900 pb-2">ENTRY_EDITOR</h2>
+            <form id="scheduleForm">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label>_TYPE</label>
+                        <select id="typeInput">
+                            <option value="mint">MINT_NFT</option>
+                            <option value="work">WORK_JOB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>_TIMESTAMP</label>
+                        <input type="datetime-local" id="datetimeInput" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>_TITLE</label>
+                    <input type="text" id="titleInput" required placeholder="Project Name">
+                </div>
+                <div class="form-group">
+                    <label>_DATA_LOG</label>
+                    <textarea id="descInput" rows="2" placeholder="Input details..."></textarea>
+                </div>
+                
+                <div id="nftFields">
+                    <div class="form-group">
+                        <label>_LOGO_URL</label>
+                        <input type="url" id="logoUrlInput" placeholder="https://...">
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="w-1/2">
+                            <label>_X_LINK</label>
+                            <input type="url" id="twitterInput" placeholder="X Link">
+                        </div>
+                        <div class="w-1/2">
+                            <label>_MINT_LINK</label>
+                            <input type="url" id="mintLinkInput" placeholder="Marketplace">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mt-4">
+                    <button type="button" onclick="closeModal()" class="w-1/2 border border-red-900 text-red-900 hover:bg-red-900 hover:text-black py-2 font-bold uppercase transition-colors">CANCEL</button>
+                    <button type="submit" id="submitBtn" class="w-1/2 cmd-btn justify-center">COMMIT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="customNotification" class="fixed top-10 left-1/2 transform -translate-x-1/2 px-8 py-6 z-[1000] flex flex-col items-center opacity-0 pointer-events-none transition-all duration-300">
+        <h3 class="font-bold text-xl mb-2 glitch-text tracking-widest">!! WARNING: MINT_T-MINUS_180 !!</h3>
+        <p id="notifMessage" class="text-center font-mono text-sm leading-relaxed"></p>
+        <button onclick="closeNotification()" class="mt-6 cmd-btn">ACKNOWLEDGE_ALARM</button>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- State Management ---
+        var alerted = new Set(); // Using var at the absolute top of the script avoids temporal dead zone issues.
+        let currentDate = new Date(); 
+        let selectedDate = new Date(); 
+        let editingId = null;
+        let audioEnabled = false;
+
+        let schedules = [
+            {
+                id: 1, type: 'mint', title: 'Bored Ape Yacht Club',
+                datetime: new Date(new Date().getTime() + 2 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+                description: 'Public sale BAYC. Prepare ETH in main wallet.',
+                logoUrl: 'https://picsum.photos/seed/bayc/100/100', twitter: 'https://x.com', mintLink: 'https://opensea.io'
+            },
+            {
+                id: 2, type: 'work', title: 'Data Encryption Task',
+                datetime: new Date(new Date().setHours(14, 0)).toISOString(),
+                description: 'Verify system logs and secure the database.',
+            },
+            {
+                id: 3, type: 'mint', title: 'Azuki Elementals',
+                datetime: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                description: 'Whitelist holder minting only.',
+                logoUrl: 'https://picsum.photos/seed/azuki/100/100', twitter: 'https://x.com', mintLink: 'https://opensea.io'
+            }
+        ];
+
+        // --- Clock Synchronization ---
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+            
+            document.getElementById('liveClock').innerText = timeStr.replace(/:/g, ' : ');
+            document.getElementById('liveDate').innerText = `DATE: ${dateStr}`;
+            
+            checkAlarms(); // Check alarms every tick
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function initAudio() {
+            alarmAudio.play().then(() => {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+                audioEnabled = true;
+                const btn = document.getElementById('soundToggle');
+                btn.innerText = '[ SOUND: ENABLED ]';
+                btn.classList.add('bg-green-500', 'text-black');
+            }).catch(e => { console.log("Audio autoplay blocked."); });
+        }
+
+        // --- Calendar Logic ---
+        const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const today = new Date();
+            
+            document.getElementById('currentMonthLabel').innerText = `${monthNames[month]}_${year}`;
+
+            const firstDay = (new Date(year, month, 1).getDay() + 6) % 7; // Monday start
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const calendarGrid = document.getElementById('calendarGrid');
+            const dayNames = Array.from(calendarGrid.querySelectorAll('.day-name'));
+            calendarGrid.innerHTML = '';
+            dayNames.forEach(el => calendarGrid.appendChild(el));
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarGrid.appendChild(document.createElement('div'));
+            }
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                cell.innerText = i < 10 ? `0${i}` : i;
+                
+                const cellDate = new Date(year, month, i);
+                
+                if (cellDate.toDateString() === selectedDate.toDateString()) cell.classList.add('active');
+                if (cellDate.toDateString() === today.toDateString()) cell.classList.add('is-today');
+
+                const events = schedules.filter(s => new Date(s.datetime).toDateString() === cellDate.toDateString());
+                if(events.some(s => s.type === 'mint')) cell.classList.add('has-mint');
+                else if(events.some(s => s.type === 'work')) cell.classList.add('has-work');
+
+                // Popup Hover Info
+                const mintEvent = events.find(s => s.type === 'mint');
+                if(mintEvent) {
+                    const timeStr = new Date(mintEvent.datetime).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12: false});
+                    const popupHtml = `
+                        <div class="nft-popup">
+                            <div class="font-bold mb-1">${mintEvent.title}</div>
+                            <div class="text-xs mb-1">T-MINUS: ${timeStr}</div>
+                            <div class="text-xs text-green-700">${mintEvent.description.substring(0, 40)}...</div>
+                        </div>
+                    `;
+                    cell.insertAdjacentHTML('beforeend', popupHtml);
+                }
+
+                cell.onclick = (e) => {
+                    if(!e.target.closest('.nft-popup')) {
+                        selectedDate = new Date(year, month, i);
+                        
+                        // Update the "LOCAL_TIME" text above tasks correctly
+                        const formattedDate = selectedDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).toUpperCase();
+                        document.getElementById('logHeader').innerText = `>> SYSTEM_LOG // ENTRIES_FOR: ${formattedDate}`;
+
+                        renderCalendar();
+                        renderTasks();
+                    }
+                };
+                calendarGrid.appendChild(cell);
+            }
+            
+            // Set initial selected date text
+            const formattedDate = selectedDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).toUpperCase();
+            document.getElementById('logHeader').innerText = `>> SYSTEM_LOG // ENTRIES_FOR: ${formattedDate}`;
+
+            lucide.createIcons();
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('taskList');
+            list.innerHTML = '';
+            const filtered = schedules.filter(s => new Date(s.datetime).toDateString() === selectedDate.toDateString());
+            filtered.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+
+            if(filtered.length === 0) {
+                list.innerHTML = '<p class="opacity-30 text-[10px] mt-4">> NO_LOG_ENTRIES_FOUND</p>';
+            } else {
+                filtered.forEach(task => {
+                    const time = new Date(task.datetime).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12: false});
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="task-card">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="font-bold text-white">[${time}]</span>
+                                    <span class="ml-2">${task.title}</span>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button onclick="editTask(${task.id})" class="text-green-700 hover:text-white"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
+                                    <button onclick="deleteTask(${task.id})" class="text-green-900 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                                </div>
+                            </div>
+                            <p class="text-[10px] mt-2 opacity-60">${task.description}</p>
+                            ${task.type === 'mint' ? `
+                            <div class="flex gap-4 mt-2 pt-2 border-t border-green-900 text-[10px]">
+                                <a href="${task.twitter}" target="_blank" class="hover:underline">>> X_LNK</a>
+                                <a href="${task.mintLink}" target="_blank" class="hover:underline">>> MINT_LNK</a>
+                            </div>` : ''}
+                        </div>
+                    `);
+                });
+            }
+            renderQueue();
+            lucide.createIcons();
+        }
+
+        function renderQueue() {
+            const list = document.getElementById('nextMintList');
+            list.innerHTML = '';
+            const now = new Date();
+            const upcoming = schedules.filter(s => s.type === 'mint' && new Date(s.datetime) > now)
+                                      .sort((a,b) => new Date(a.datetime) - new Date(b.datetime))
+                                      .slice(0, 4);
+
+            if(upcoming.length === 0) {
+                list.innerHTML = '<p class="text-green-900 text-sm">> QUEUE_EMPTY</p>';
+                return;
+            }
+
+            upcoming.forEach(mint => {
+                const dt = new Date(mint.datetime);
+                const dateStr = dt.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' });
+                const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+                list.insertAdjacentHTML('beforeend', `
+                    <div class="flex items-center gap-3 border border-green-900 p-2 hover:bg-green-950 transition-colors cursor-help">
+                        <img src="${mint.logoUrl}" class="w-8 h-8 matrix-img">
+                        <div class="overflow-hidden">
+                            <div class="text-[11px] font-bold truncate">${mint.title}</div>
+                            <div class="text-[9px] opacity-60">${dateStr} - ${timeStr}</div>
+                        </div>
+                    </div>
+                `);
+            });
+        }
+
+        // --- Crud Operations ---
+        const modal = document.getElementById('addModal');
+        document.getElementById('openModalBtn').onclick = () => {
+            editingId = null;
+            document.getElementById('scheduleForm').reset();
+            document.getElementById('modalTitle').innerText = 'ENTRY_EDITOR';
+            document.getElementById('submitBtn').innerText = 'COMMIT';
+            document.getElementById('nftFields').style.display = 'block';
+
+            modal.classList.add('active');
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('datetimeInput').value = now.toISOString().slice(0,16);
+        };
+
+        function closeModal() { modal.classList.remove('active'); }
+
+        document.getElementById('scheduleForm').onsubmit = (e) => {
+            e.preventDefault();
+            const data = {
+                id: editingId || Date.now(),
+                type: document.getElementById('typeInput').value,
+                title: document.getElementById('titleInput').value,
+                datetime: document.getElementById('datetimeInput').value,
+                description: document.getElementById('descInput').value,
+                logoUrl: document.getElementById('logoUrlInput').value,
+                twitter: document.getElementById('twitterInput').value,
+                mintLink: document.getElementById('mintLinkInput').value
+            };
+
+            if(editingId) {
+                const idx = schedules.findIndex(s => s.id === editingId);
+                schedules[idx] = data;
+            } else {
+                schedules.push(data);
+            }
+
+            closeModal();
+            renderCalendar();
+            renderTasks();
+        };
+
+        function editTask(id) {
+            const task = schedules.find(s => s.id === id);
+            editingId = id;
+            document.getElementById('typeInput').value = task.type;
+            document.getElementById('titleInput').value = task.title;
+            
+            const dt = new Date(task.datetime);
+            const tzoffset = dt.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(dt.getTime() - tzoffset)).toISOString().slice(0, 16);
+            
+            document.getElementById('datetimeInput').value = localISOTime;
+            document.getElementById('descInput').value = task.description;
+            
+            if(task.type === 'mint') {
+                document.getElementById('nftFields').style.display = 'block';
+                document.getElementById('logoUrlInput').value = task.logoUrl || '';
+                document.getElementById('twitterInput').value = task.twitter || '';
+                document.getElementById('mintLinkInput').value = task.mintLink || '';
+            } else {
+                document.getElementById('nftFields').style.display = 'none';
+            }
+
+            document.getElementById('modalTitle').innerText = 'REWRITE_DATA';
+            document.getElementById('submitBtn').innerText = 'UPDATE';
+            modal.classList.add('active');
+        }
+
+        function deleteTask(id) {
+            schedules = schedules.filter(s => s.id !== id);
+            renderCalendar();
+            renderTasks();
+        }
+
+        // --- Alarm System ---
+        function checkAlarms() {
+            const now = new Date();
+            schedules.forEach(task => {
+                if(task.type === 'mint' && !alerted.has(task.id)) {
+                    const taskTime = new Date(task.datetime);
+                    const diff = taskTime.getTime() - now.getTime();
+                    const threeHours = 3 * 60 * 60 * 1000;
+
+                    if(diff > 0 && diff <= threeHours) {
+                        if(audioEnabled) alarmAudio.play();
+                        document.getElementById('notifMessage').innerText = `DATA_CORRUPTION_AVOIDED\nPROJ_NAME: ${task.title}\nMINT_WINDOW_OPENING_IN: 180_MINUTES`;
+                        document.getElementById('customNotification').classList.replace('opacity-0', 'opacity-100');
+                        document.getElementById('customNotification').classList.remove('pointer-events-none');
+                        alerted.add(task.id);
+                    }
+                }
+            });
+        }
+
+        function closeNotification() {
+            document.getElementById('customNotification').classList.replace('opacity-100', 'opacity-0');
+            document.getElementById('customNotification').classList.add('pointer-events-none');
+            alarmAudio.pause(); alarmAudio.currentTime = 0;
+        }
+
+        document.getElementById('prevMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(); };
+        document.getElementById('nextMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(); };
+
+        // Initial Start
+        renderCalendar();
+        renderTasks();
+
+    </script>
+</body>
+</html>
